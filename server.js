@@ -112,33 +112,29 @@ app.use((error, req, res, next) => {
 });
 
 async function startServer() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS records (
-        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        title VARCHAR(80) NOT NULL,
-        category VARCHAR(40) NOT NULL,
-        description VARCHAR(300) NOT NULL,
-        status VARCHAR(20) NOT NULL
-          CHECK (status IN ('Pending', 'In progress', 'Completed')),
-        CONSTRAINT title_length
-          CHECK (char_length(btrim(title)) BETWEEN 3 AND 80),
-        CONSTRAINT category_length
-          CHECK (char_length(btrim(category)) BETWEEN 2 AND 40),
-        CONSTRAINT description_length
-          CHECK (char_length(btrim(description)) BETWEEN 5 AND 300)
-      );
-    `);
+  // Create the required table automatically if this is a fresh hosted database.
+  // This avoids needing to connect to Render PostgreSQL separately to run schema.sql.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS records (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      title VARCHAR(80) NOT NULL,
+      category VARCHAR(40) NOT NULL,
+      description VARCHAR(300) NOT NULL,
+      status VARCHAR(20) NOT NULL
+        CHECK (status IN ('Pending', 'In progress', 'Completed')),
+      CONSTRAINT title_length CHECK (char_length(btrim(title)) BETWEEN 3 AND 80),
+      CONSTRAINT category_length CHECK (char_length(btrim(category)) BETWEEN 2 AND 40),
+      CONSTRAINT description_length CHECK (char_length(btrim(description)) BETWEEN 5 AND 300)
+    )
+  `);
+  console.log("Database table 'records' is ready.");
 
-    console.log("Records table is ready.");
-
-    app.listen(port, "0.0.0.0", () => {
-      console.log(`Study Support API listening on port ${port}`);
-    });
-  } catch (error) {
-    console.error("Database initialization failed:", error);
-    process.exit(1);
-  }
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`Study Support API listening on port ${port}`);
+  });
 }
 
-startServer();
+startServer().catch(error => {
+  console.error("Could not initialize the database:", error);
+  process.exit(1);
+});
